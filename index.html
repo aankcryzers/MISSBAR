@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -74,7 +73,7 @@
     let menus = JSON.parse(localStorage.getItem('menus') || '[]');
     let cart = [];
     let sales = JSON.parse(localStorage.getItem('sales') || '[]');
-    let tempTrans = [];
+    let tempTrans = JSON.parse(localStorage.getItem('tempTrans') || '[]');
 
     function toggleSidebar() {
       document.getElementById('sidebar').classList.toggle('open');
@@ -83,6 +82,9 @@
     function showPage(id) {
       document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
       document.getElementById(id + 'Page').classList.remove('hidden');
+      if (window.innerWidth < 768) {
+        document.getElementById('sidebar').classList.remove('open');
+      }
       if (id === 'menu') renderMenuTable();
       if (id === 'kasir') { renderMenuList(); renderTempTrans(); }
       if (id === 'rekap') renderRekap();
@@ -91,6 +93,7 @@
     function saveToLocal() {
       localStorage.setItem('menus', JSON.stringify(menus));
       localStorage.setItem('sales', JSON.stringify(sales));
+      localStorage.setItem('tempTrans', JSON.stringify(tempTrans)); // simpan juga log sementara
     }
 
     function renderMenuList() {
@@ -99,14 +102,14 @@
       menus.forEach((menu, i) => {
         const div = document.createElement('div');
         div.className = 'border p-2 rounded shadow bg-white';
-        div.innerHTML = \`
-          <img src="\${menu.img}" alt="" class="w-full h-32 object-cover rounded mb-2">
-          <h4 class="font-bold">\${menu.name}</h4>
+        div.innerHTML = `
+          <img src="${menu.img}" alt="" class="w-full h-32 object-cover rounded mb-2">
+          <h4 class="font-bold">${menu.name}</h4>
           <div class="flex gap-1 mt-2">
-            <button onclick="addToCart(\${i}, 'hot')" class="bg-red-500 text-white px-2 py-1 rounded text-sm">Panas</button>
-            <button onclick="addToCart(\${i}, 'cold')" class="bg-blue-500 text-white px-2 py-1 rounded text-sm">Es</button>
+            <button onclick="addToCart(${i}, 'hot')" class="bg-red-500 text-white px-2 py-1 rounded text-sm">Panas</button>
+            <button onclick="addToCart(${i}, 'cold')" class="bg-blue-500 text-white px-2 py-1 rounded text-sm">Es</button>
           </div>
-        \`;
+        `;
         menuList.appendChild(div);
       });
     }
@@ -114,7 +117,7 @@
     function addToCart(index, type) {
       const menu = menus[index];
       const price = type === 'cold' ? menu.priceCold : menu.priceHot;
-      const name = \`\${menu.name} (\${type === 'cold' ? 'Es' : 'Panas'})\`;
+      const name = `${menu.name} (${type === 'cold' ? 'Es' : 'Panas'})`;
       const existing = cart.find(i => i.name === name);
       if (existing) existing.qty += 1;
       else cart.push({ name, price, qty: 1 });
@@ -128,11 +131,19 @@
       let total = 0;
       cart.forEach((item, i) => {
         const li = document.createElement('li');
-        li.innerHTML = \`\${item.name} x\${item.qty} = Rp \${item.qty * item.price}\`;
+        li.innerHTML = `
+          ${item.name} x${item.qty} = Rp ${item.qty * item.price}
+          <button onclick="removeFromCart(${i})" class="ml-2 text-red-600">Hapus</button>
+        `;
         list.appendChild(li);
         total += item.qty * item.price;
       });
       totalEl.textContent = total;
+    }
+
+    function removeFromCart(index) {
+      cart.splice(index, 1);
+      renderCart();
     }
 
     function checkout() {
@@ -155,12 +166,12 @@
       tempTrans.forEach((trx, i) => {
         const div = document.createElement('div');
         div.className = 'border p-2 rounded bg-white';
-        div.innerHTML = \`
-          <div><strong>\${trx.time}</strong></div>
+        div.innerHTML = `
+          <div><strong>${trx.time}</strong></div>
           <ul class="text-sm">
-            \${trx.items.map(item => \`<li>\${item.name} x\${item.qty} = Rp \${item.qty * item.price}</li>\`).join('')}
+            ${trx.items.map(item => `<li>${item.name} x${item.qty} = Rp ${item.qty * item.price}</li>`).join('')}
           </ul>
-        \`;
+        `;
         container.appendChild(div);
       });
     }
@@ -171,12 +182,12 @@
       menus.forEach((menu, index) => {
         const div = document.createElement('div');
         div.className = 'border p-2 bg-white rounded shadow';
-        div.innerHTML = \`
-          <img src="\${menu.img}" alt="" class="w-full h-24 object-cover rounded mb-2">
-          <h4 class="font-bold">\${menu.name}</h4>
-          <p>Panas: Rp \${menu.priceHot}</p>
-          <p>Es: Rp \${menu.priceCold}</p>
-        \`;
+        div.innerHTML = `
+          <img src="${menu.img}" alt="" class="w-full h-24 object-cover rounded mb-2">
+          <h4 class="font-bold">${menu.name}</h4>
+          <p>Panas: Rp ${menu.priceHot}</p>
+          <p>Es: Rp ${menu.priceCold}</p>
+        `;
         menuTable.appendChild(div);
       });
     }
@@ -184,24 +195,59 @@
     function renderRekap() {
       const rekapList = document.getElementById('rekapList');
       rekapList.innerHTML = '';
-      if (!sales.length) return rekapList.innerHTML = '<p>Tidak ada data transaksi.</p>';
+      if (!sales.length) {
+        rekapList.innerHTML = '<p>Tidak ada data transaksi.</p>';
+        document.getElementById('rekapSummary').textContent = '';
+        if (window.salesChartInstance) window.salesChartInstance.destroy();
+        return;
+      }
       sales.forEach(trx => {
         const div = document.createElement('div');
         div.className = 'border p-2 mb-2 bg-white rounded'; 
-        div.innerHTML = \`
-          <strong>\${trx.time}</strong><br>
-          <ul>\${trx.items.map(i => \`<li>\${i.name} x\${i.qty} = Rp \${i.qty * i.price}</li>\`).join('')}</ul>
-        \`;
+        div.innerHTML = `
+          <strong>${trx.time}</strong><br>
+          <ul>${trx.items.map(i => `<li>${i.name} x${i.qty} = Rp ${i.qty * i.price}</li>`).join('')}</ul>
+        `;
         rekapList.appendChild(div);
       });
+
+      // CHART
+      // Group penjualan per hari
+      const salesPerDay = {};
+      sales.forEach(trx => {
+        salesPerDay[trx.date] = (salesPerDay[trx.date] || 0) + trx.items.reduce((sum, i) => sum + i.qty * i.price, 0);
+      });
+      const labels = Object.keys(salesPerDay);
+      const data = Object.values(salesPerDay);
+
+      const ctx = document.getElementById('salesChart').getContext('2d');
+      if (window.salesChartInstance) window.salesChartInstance.destroy();
+      window.salesChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Penjualan Harian',
+            data,
+            backgroundColor: '#38bdf8'
+          }]
+        },
+        options: { responsive: true }
+      });
+
+      // Ringkasan
+      const total = data.reduce((a, b) => a + b, 0);
+      document.getElementById('rekapSummary').textContent = 'Total Penjualan: Rp ' + total;
     }
 
     document.getElementById('menuForm').addEventListener('submit', e => {
       e.preventDefault();
-      const name = document.getElementById('menuName').value;
+      const name = document.getElementById('menuName').value.trim();
       const hot = parseInt(document.getElementById('menuPriceHot').value);
       const cold = parseInt(document.getElementById('menuPriceCold').value);
       const imgFile = document.getElementById('menuImage').files[0];
+      if (!name) return alert('Nama menu tidak boleh kosong');
+      if (isNaN(hot) || isNaN(cold)) return alert('Harga harus angka');
       if (!imgFile) return alert('Pilih gambar');
       const reader = new FileReader();
       reader.onload = function () {
