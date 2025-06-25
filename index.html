@@ -159,12 +159,12 @@
   saveToLocal();
 
   // Kirim ke Google Spreadsheet
-  const scriptURL = 'https://script.google.com/macros/s/AKfycbzKiL9HNfuXHL1J0ODdjHv5Un5mGgTCX720Lm4xfGzDZph6MllUtyC2g9UDi6B7O-qk/exec'; // Ganti dengan URL Web App kamu
-  fetch(scriptURL, {
-    method: 'POST',
-    body: JSON.stringify(transaksi),
-    headers: { 'Content-Type': 'application/json' }
-  })
+  const scriptURL = 'https://script.google.com/macros/s/AKfycbybyW77RQ-z0SrLHgiVFwdMZSLqnj_RZdYGlAzhdv_88bF_3pstXEwYyaZf35J9a99l/exec'; // Ganti dengan URL Web App kamu
+  const form = new FormData();
+form.append("data", JSON.stringify(transaksi));
+
+fetch(scriptURL, { method: 'POST', body: form })
+  
   .then(response => response.text())
   .then(result => {
     alert('Transaksi berhasil dan disimpan!');
