@@ -45,6 +45,7 @@
         </div>
         <div class="mt-4">
           <h4 class="text-lg font-bold">Log Transaksi Sementara</h4>
+          <button onclick="clearTempTrans()" class="bg-red-600 text-white px-3 py-1 rounded mb-2">Hapus Semua Log</button>
           <div id="tempTransList" class="space-y-4"></div>
         </div>
       </div>
@@ -81,7 +82,13 @@
     function toggleSidebar() {
       document.getElementById('sidebar').classList.toggle('open');
     }
-
+  function clearTempTrans() {
+  if (confirm('Hapus semua log transaksi sementara?')) {
+    tempTrans = [];
+    saveToLocal();
+    renderTempTrans();
+  }
+}
     function showPage(id) {
       document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
       document.getElementById(id + 'Page').classList.remove('hidden');
@@ -128,26 +135,43 @@
     }
 
     function renderCart() {
-      const list = document.getElementById('cartList');
-      const totalEl = document.getElementById('cartTotal');
-      list.innerHTML = '';
-      let total = 0;
-      cart.forEach((item, i) => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          ${item.name} x${item.qty} = Rp ${item.qty * item.price}
-          <button onclick="removeFromCart(${i})" class="ml-2 text-red-600">Hapus</button>
-        `;
-        list.appendChild(li);
-        total += item.qty * item.price;
-      });
-      totalEl.textContent = total;
-    }
+  const list = document.getElementById('cartList');
+  const totalEl = document.getElementById('cartTotal');
+  list.innerHTML = '';
+  let total = 0;
+  cart.forEach((item, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `
+      ${item.name}
+      <button onclick="decreaseQty(${i})" class="ml-2 bg-gray-300 px-2 rounded">-</button>
+      x${item.qty}
+      <button onclick="increaseQty(${i})" class="ml-2 bg-gray-300 px-2 rounded">+</button>
+      = Rp ${item.qty * item.price}
+      <button onclick="removeFromCart(${i})" class="ml-2 text-red-600">Hapus</button>
+    `;
+    list.appendChild(li);
+    total += item.qty * item.price;
+  });
+  totalEl.textContent = total;
+}
 
     function removeFromCart(index) {
       cart.splice(index, 1);
       renderCart();
     }
+    function increaseQty(index) {
+  cart[index].qty += 1;
+  renderCart();
+}
+
+function decreaseQty(index) {
+  if (cart[index].qty > 1) {
+    cart[index].qty -= 1;
+  } else {
+    cart.splice(index, 1); // Hapus jika sudah 1 dan dikurangin
+  }
+  renderCart();
+}
 
     function checkout() {
   if (cart.length === 0) return alert('Keranjang kosong!');
