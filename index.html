@@ -41,6 +41,7 @@
           <ul id="cartList" class="mb-2 space-y-2"></ul>
           <p class="font-bold">Total: Rp <span id="cartTotal">0</span></p>
           <button onclick="checkout()" class="mt-2 bg-green-600 text-white px-4 py-2 rounded w-full">Checkout</button>
+          <button onclick="printReceipt()" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded w-full">Cetak Struk</button>
         </div>
         <div class="mt-4">
           <h4 class="text-lg font-bold">Log Transaksi Sementara</h4>
@@ -54,8 +55,9 @@
           <input id="menuName" placeholder="Nama Menu" class="p-2 border rounded" required />
           <input id="menuPriceHot" type="number" placeholder="Harga Panas" class="p-2 border rounded" required />
           <input id="menuPriceCold" type="number" placeholder="Harga Es" class="p-2 border rounded" required />
-          <input id="menuImage" type="file" accept="image/*" class="p-2 border rounded" required />
-          <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded col-span-full">Tambah Menu</button>
+          <input id="menuImage" type="file" accept="image/*" class="p-2 border rounded" />
+          <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded col-span-full" id="submitBtn">Tambah Menu</button>
+          <input type="hidden" id="editIndex" />
         </form>
         <div id="menuTable" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
       </div>
@@ -74,6 +76,7 @@
     let cart = [];
     let sales = JSON.parse(localStorage.getItem('sales') || '[]');
     let tempTrans = JSON.parse(localStorage.getItem('tempTrans') || '[]');
+    let editingMenuIndex = null;
 
     function toggleSidebar() {
       document.getElementById('sidebar').classList.toggle('open');
@@ -93,7 +96,7 @@
     function saveToLocal() {
       localStorage.setItem('menus', JSON.stringify(menus));
       localStorage.setItem('sales', JSON.stringify(sales));
-      localStorage.setItem('tempTrans', JSON.stringify(tempTrans)); // simpan juga log sementara
+      localStorage.setItem('tempTrans', JSON.stringify(tempTrans));
     }
 
     function renderMenuList() {
@@ -160,6 +163,20 @@
       renderTempTrans();
     }
 
+    function printReceipt() {
+      if (cart.length === 0) return alert('Keranjang kosong!');
+      const doc = new window.jspdf.jsPDF();
+      doc.text("Struk Pembelian - Kasir Kopi", 10, 10);
+      let y = 20;
+      cart.forEach(item => {
+        doc.text(`${item.name} x${item.qty} = Rp ${item.qty * item.price}`, 10, y);
+        y += 10;
+      });
+      const total = cart.reduce((sum, item) => sum + item.qty * item.price, 0);
+      doc.text(`Total: Rp ${total}`, 10, y + 10);
+      doc.save('struk.pdf');
+    }
+
     function renderTempTrans() {
       const container = document.getElementById('tempTransList');
       container.innerHTML = '';
@@ -187,10 +204,77 @@
           <h4 class="font-bold">${menu.name}</h4>
           <p>Panas: Rp ${menu.priceHot}</p>
           <p>Es: Rp ${menu.priceCold}</p>
+          <div class="flex gap-2 mt-2">
+            <button onclick="onEditMenu(${index})" class="bg-yellow-600 text-white px-2 py-1 rounded text-sm">Edit</button>
+            <button onclick="onDeleteMenu(${index})" class="bg-red-600 text-white px-2 py-1 rounded text-sm">Hapus</button>
+          </div>
         `;
         menuTable.appendChild(div);
       });
     }
+
+    function onEditMenu(index) {
+      const menu = menus[index];
+      document.getElementById('menuName').value = menu.name;
+      document.getElementById('menuPriceHot').value = menu.priceHot;
+      document.getElementById('menuPriceCold').value = menu.priceCold;
+      document.getElementById('editIndex').value = index;
+      document.getElementById('submitBtn').textContent = 'Simpan Perubahan';
+      // Gambar tidak bisa dipreview, harus upload ulang jika ingin ganti gambar
+    }
+
+    function onDeleteMenu(index) {
+      if (confirm('Hapus menu ini?')) {
+        menus.splice(index, 1);
+        saveToLocal();
+        renderMenuTable();
+        renderMenuList();
+      }
+    }
+
+    document.getElementById('menuForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const name = document.getElementById('menuName').value.trim();
+      const hot = parseInt(document.getElementById('menuPriceHot').value);
+      const cold = parseInt(document.getElementById('menuPriceCold').value);
+      const imgFile = document.getElementById('menuImage').files[0];
+      const editIdx = document.getElementById('editIndex').value;
+
+      if (!name) return alert('Nama menu tidak boleh kosong');
+      if (isNaN(hot) || isNaN(cold)) return alert('Harga harus angka');
+
+      function finishMenu(imgData) {
+        if (editIdx !== "") {
+          // Edit menu
+          menus[editIdx] = {
+            name,
+            priceHot: hot,
+            priceCold: cold,
+            img: imgData || menus[editIdx].img
+          };
+        } else {
+          // Tambah baru
+          if (!imgData) return alert('Pilih gambar');
+          menus.push({ name, priceHot: hot, priceCold: cold, img: imgData });
+        }
+        saveToLocal();
+        renderMenuTable();
+        renderMenuList();
+        document.getElementById('menuForm').reset();
+        document.getElementById('editIndex').value = '';
+        document.getElementById('submitBtn').textContent = 'Tambah Menu';
+      }
+
+      if (imgFile) {
+        const reader = new FileReader();
+        reader.onload = function () {
+          finishMenu(reader.result);
+        };
+        reader.readAsDataURL(imgFile);
+      } else {
+        finishMenu(null);
+      }
+    });
 
     function renderRekap() {
       const rekapList = document.getElementById('rekapList');
@@ -239,25 +323,6 @@
       const total = data.reduce((a, b) => a + b, 0);
       document.getElementById('rekapSummary').textContent = 'Total Penjualan: Rp ' + total;
     }
-
-    document.getElementById('menuForm').addEventListener('submit', e => {
-      e.preventDefault();
-      const name = document.getElementById('menuName').value.trim();
-      const hot = parseInt(document.getElementById('menuPriceHot').value);
-      const cold = parseInt(document.getElementById('menuPriceCold').value);
-      const imgFile = document.getElementById('menuImage').files[0];
-      if (!name) return alert('Nama menu tidak boleh kosong');
-      if (isNaN(hot) || isNaN(cold)) return alert('Harga harus angka');
-      if (!imgFile) return alert('Pilih gambar');
-      const reader = new FileReader();
-      reader.onload = function () {
-        menus.push({ name, priceHot: hot, priceCold: cold, img: reader.result });
-        saveToLocal();
-        renderMenuTable();
-        document.getElementById('menuForm').reset();
-      };
-      reader.readAsDataURL(imgFile);
-    });
 
     showPage('kasir');
   </script>
