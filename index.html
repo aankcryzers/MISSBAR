@@ -150,18 +150,35 @@
     }
 
     function checkout() {
-      if (cart.length === 0) return alert('Keranjang kosong!');
-      const time = new Date();
-      const date = time.toISOString().split('T')[0];
-      const transaksi = { time: time.toLocaleString('id-ID'), date, items: JSON.parse(JSON.stringify(cart)) };
-      sales.push(transaksi);
-      tempTrans.unshift(transaksi);
-      saveToLocal();
-      alert('Transaksi berhasil!');
-      cart = [];
-      renderCart();
-      renderTempTrans();
-    }
+  if (cart.length === 0) return alert('Keranjang kosong!');
+  const time = new Date();
+  const date = time.toISOString().split('T')[0];
+  const transaksi = { time: time.toLocaleString('id-ID'), date, items: JSON.parse(JSON.stringify(cart)) };
+  sales.push(transaksi);
+  tempTrans.unshift(transaksi);
+  saveToLocal();
+
+  // Kirim ke Google Spreadsheet
+  const scriptURL = 'https://script.google.com/macros/s/AKfycbwaDNn1zbXiTN5dCozT2AerAfKpPquz8xWXepdeRUgJmdwGUo11W_Wv5u7JK2MBxDqT/exec'; // Ganti dengan URL Web App kamu
+  fetch(scriptURL, {
+    method: 'POST',
+    body: JSON.stringify(transaksi),
+    headers: { 'Content-Type': 'application/json' }
+  })
+  .then(response => response.text())
+  .then(result => {
+    alert('Transaksi berhasil dan disimpan!');
+    cart = [];
+    renderCart();
+    renderTempTrans();
+  })
+  .catch(error => {
+    alert('Transaksi lokal sukses, tapi gagal simpan ke spreadsheet.');
+    cart = [];
+    renderCart();
+    renderTempTrans();
+  });
+}
 
     function printReceipt() {
       if (cart.length === 0) return alert('Keranjang kosong!');
